@@ -6,8 +6,30 @@ from sqlalchemy import create_engine, func, inspect
 import datetime as dt
 import numpy as np
 
+
+
+#################################################
+# Database Setup
+#################################################
+engine = create_engine("sqlite:///hawaii.sqlite")
+
+# reflect an existing database into a new model
+Base = automap_base()
+# reflect the tables
+Base.prepare(engine, reflect=True)
+
+# Save reference to the table
+Measurement=Base.classes.measurement
+Station=Base.classes.station
+
+#################################################
+# Flask Setup
+#################################################
 app=Flask(__name__)
 
+#################################################
+# Flask Routes
+#################################################
 @app.route('/')
 
 def home():
@@ -18,23 +40,17 @@ def home():
           f"/api/v1.0/tobs<br/>"
           f"/api/v1.0/start/end<br/>")
 
-engine = create_engine("sqlite:///hawaii.sqlite")
-
-
-Base=automap_base()
-Base.prepare(engine, reflect=True)
-Measurement=Base.classes.measurement
-Station=Base.classes.station
-session = Session(engine)
-prev_date=dt.date(2017,8,23)-dt.timedelta(days=365)
-
-# Perform a query to retrieve the data and precipitation scores
-results=session.query(Measurement.prcp, Measurement.date).filter(Measurement.date>prev_date).all()
-
 
 @app.route('/api/v1.0/precipitation')
 def precipitation():
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
+    
+    prev_date=dt.date(2017,8,23)-dt.timedelta(days=365)
 
+    # Perform a query to retrieve the data and precipitation scores
+    results=session.query(Measurement.prcp, Measurement.date).filter(Measurement.date>prev_date).all()
+    
     precipitation=[]
 
     for prcp, date in results:
@@ -42,24 +58,50 @@ def precipitation():
         precipitationDict['prcp']=prcp
         precipitationDict['date']=date
         precipitation.append(precipitationDict)
-        session.clear
-    return jsonify(precipitation)
+
+    session.close()
+    
+    all_dates = list(np.ravel(precipitation))
+
+    return jsonify(all_dates)
 
 @app.route('/api/v1.0/stations')
 def stations():
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
 
+    # Perform a query to all of the stations
     stations=session.query(Measurement.station).distinct().all()
-    all_stations = list(np.ravel(stations))
 
+    session.close()
+    all_stations = list(np.ravel(stations))
     return jsonify({"stations":all_stations})
 
 @app.route('/api/v1.0/tobs')
 def tobs():
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
 
-    results=session.query(Measurement.tobs).filter(Measurement.station=='USC00516128').filter(Measurement.date>prev_date).all()
-    tobs_result=list(np.ravel(results))
-    session.clear
-    return jsonify({"tobs":tobs_result})
+    #Previous Date calculation
+    prev_date=dt.date(2017,8,23)-dt.timedelta(days=365)
+    
+    # Perform a query to retrieve the data and precipitation scores
+    results2=session.query(Measurement.tobs,Measurement.date).filter(Measurement.station=='USC00516128').filter(Measurement.date>prev_date).all()
+    
+    tobs_data=[]
+
+    for tobs, date in results2:
+        tobs_dataDict={}
+        tobs_dataDict['tobs']=tobs
+        tobs_dataDict['date']=date
+        tobs_data.append(tobs_dataDict)
+ 
+ 
+    tobs_result=list(np.ravel(tobs_data))
+
+    session.close()
+
+    return jsonify(tobs_result)
 
 @app.route('/api/v1.0/<start_date>')
 def start(start_date=None):
@@ -85,5 +127,5 @@ def start_end(start_date=None,end_date=None):
 
 
 
-app.run(debug=True)
-session.close()
+if __name__ == '__main__':
+    app.run(debug=True)
