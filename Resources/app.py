@@ -38,6 +38,8 @@ def home():
     prev_date=dt.date(2017,8,23)-dt.timedelta(days=365)
     last_date=dt.date(2017,8,23)
     
+    session.close()
+
     return (f"Welcome to the home page!<br/>"
           f"Here are your available routes:<br/>"
           f"/api/v1.0/precipitation<br/>"
@@ -51,9 +53,9 @@ def home():
           f"For example '/api/v1.0/05-25-2017'</br>"
           f"<br/>"
           f"<br/>"
-          f"This data set includes data from {prev_date} to {last_date}")
-
-
+          f"The representative timeframe that should be considered for this data is from {prev_date} to {last_date}")
+    
+  
 @app.route('/api/v1.0/precipitation')
 def precipitation():
     # Create our session (link) from Python to the DB
@@ -120,20 +122,22 @@ def tobs():
 def start(start_date=None):
     # Create our session (link) from Python to the DB
     session = Session(engine)
-    
+
     sel=[func.min(Measurement.tobs),func.max(Measurement.tobs),func.avg(Measurement.tobs)]
     results=session.query(*sel).filter(Measurement.date>=start_date).all()
+   
     temperatures=[]
     for TMIN, TMAX, TAVG in results:
         TDictionary={}
+        TDictionary['Date_Start']=start_date
         TDictionary['TMIN']=TMIN
         TDictionary['TMAX']=TMAX
         TDictionary['TAVG']=TAVG
         temperatures.append(TDictionary)
 
-        session.close()
-
-        return jsonify(temperatures)
+    session.close()
+        
+    return jsonify(temperatures)
 
 @app.route('/api/v1.0/<start_date>/<end_date>')
 def start_end(start_date=None,end_date=None):
@@ -142,13 +146,22 @@ def start_end(start_date=None,end_date=None):
 
     sel=[func.min(Measurement.tobs),func.max(Measurement.tobs),func.avg(Measurement.tobs)]
     results=session.query(*sel).filter(Measurement.date>=start_date).filter(Measurement.date<=end_date).all()
-    temps=list(np.ravel(results))
-    
+   
+    temp_range=[]
+    for TMIN, TMAX, TAVG in results:
+        TRDictionary={}
+        TRDictionary['Date_Start']=start_date
+        TRDictionary['Date_End']=end_date
+        TRDictionary['TMIN']=TMIN
+        TRDictionary['TMAX']=TMAX
+        TRDictionary['TAVG']=TAVG
+        temp_range.append(TRDictionary)
+
     session.close()
 
-    return jsonify(temps=temps)
+    return jsonify(temp_range)
 
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
