@@ -33,12 +33,25 @@ app=Flask(__name__)
 @app.route('/')
 
 def home():
+    session = Session(engine)
+    
+    prev_date=dt.date(2017,8,23)-dt.timedelta(days=365)
+    last_date=dt.date(2017,8,23)
+    
     return (f"Welcome to the home page!<br/>"
           f"Here are your available routes:<br/>"
           f"/api/v1.0/precipitation<br/>"
           f"/api/v1.0/stations<br/>"
           f"/api/v1.0/tobs<br/>"
-          f"/api/v1.0/start/end<br/>")
+          f"/api/v1.0/start/<br/>"
+          f"/api/v1.0/start/end<br/>"
+          f"<br/>"
+          f"<br/>"
+          f"For API start and end dates, replace the 'start' or 'end' with the data in the MM-DD-YYYY format</br>"
+          f"For example '/api/v1.0/05-25-2017'</br>"
+          f"<br/>"
+          f"<br/>"
+          f"This data set includes data from {prev_date} to {last_date}")
 
 
 @app.route('/api/v1.0/precipitation')
@@ -85,7 +98,7 @@ def tobs():
     #Previous Date calculation
     prev_date=dt.date(2017,8,23)-dt.timedelta(days=365)
     
-    # Perform a query to retrieve the data and precipitation scores
+    # Perform a query to retrieve the date and tobs
     results2=session.query(Measurement.tobs,Measurement.date).filter(Measurement.station=='USC00516128').filter(Measurement.date>prev_date).all()
     
     tobs_data=[]
@@ -105,6 +118,9 @@ def tobs():
 
 @app.route('/api/v1.0/<start_date>')
 def start(start_date=None):
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
+    
     sel=[func.min(Measurement.tobs),func.max(Measurement.tobs),func.avg(Measurement.tobs)]
     results=session.query(*sel).filter(Measurement.date>=start_date).all()
     temperatures=[]
@@ -114,15 +130,22 @@ def start(start_date=None):
         TDictionary['TMAX']=TMAX
         TDictionary['TAVG']=TAVG
         temperatures.append(TDictionary)
-        session.clear
-    return jsonify(temperatures)
+
+        session.close()
+
+        return jsonify(temperatures)
 
 @app.route('/api/v1.0/<start_date>/<end_date>')
 def start_end(start_date=None,end_date=None):
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
+
     sel=[func.min(Measurement.tobs),func.max(Measurement.tobs),func.avg(Measurement.tobs)]
     results=session.query(*sel).filter(Measurement.date>=start_date).filter(Measurement.date<=end_date).all()
     temps=list(np.ravel(results))
-    session.clear
+    
+    session.close()
+
     return jsonify(temps=temps)
 
 
